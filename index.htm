@@ -1,0 +1,251 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html>
+<head>
+	<script src="jquery-1.9.0.min.js"></script>
+</head>
+
+<body>
+	<iframe src="topFrame.htm" name="topFrame" marginWidth="0" height="30px" marginHeight="0" noResize="" scrolling="no" width="100%" frameborder="0">
+	</iframe>
+	<iframe id="" src="mainForm.htm" name="SFOMainFrame" width="100%" style="height: 500px;"  frameborder="0"></iframe>
+	<button id="FillPage">Fill page</button>
+	
+	<div>
+		<p>Changes log</p>
+		<p id="trackedChanges" style="display: block"></p>
+	</div>
+    <!--<script type="text/javascript" src="myJS.js"></script>-->
+	<script type="text/javascript">
+		var items = {
+			InsuredName: 'Perfect customer',
+			DBA: 'PERF Co',
+			EffectiveDate: '05/05/2013',
+			YIB: '4',
+			Entity: 'corporation',
+			FEIN: '987654321',
+			Email: 'perfect@perfect.com',
+			ExpMod: '0.98', //could be empty
+			locations: [{
+				locNum: '1',
+				Street: '111 Main Str',
+				City: 'Los Angeles',
+				State: 'CA',
+				Zip: '90012 - 1234'
+			},
+			{
+				locNum: '2',
+				Street: '222 Main Str',
+				City: 'Los Angeles',
+				State: 'CA',
+				Zip: '90012'
+			},
+			{
+				locNum: '3',
+				Street: '333 Main Str',
+				City: 'Los Angeles',
+				State: 'CA',
+				Zip: '90012'
+			}
+			]
+		};
+
+		//------------------------------
+        var locLength = items.locations.length;
+        var trackChanges = $('#trackedChanges');
+        var inputs = {};
+        var itemsPage;
+        var mainFrame;
+
+        jQuery.expr[":"].Contains = jQuery.expr.createPseudo(function(arg) {
+            return function( elem ) {
+                return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0;
+            };
+        });
+        function findElements(){
+            var trCount;
+            var i;
+            mainFrame =  $('iframe[name = "SFOMainFrame"]').contents();
+            trCount = mainFrame.find('#locationsTable tbody tr').length;
+            inputs.Locations = [];
+            inputs.SelectLegal = mainFrame.find('#LegalEntity :Contains(' + items.Entity + ')');
+            inputs.radioTrue = mainFrame.find('#ExpModCustCA\\[0\\]');
+            inputs.radioFalse = mainFrame.find('#ExpModCustCA\\[1\\]');
+            inputs.CommercialName = mainFrame.find("input[name *= 'CommercialName']")[0];
+            inputs.SupplementaryName = mainFrame.find("input[name *= 'SupplementaryName']")[0];
+            inputs.PolicyEffectiveDt = mainFrame.find("input[name = 'PolicyEffectiveDt']")[0];
+            inputs.YIB = mainFrame.find("input[name = 'YIB']")[0];
+            inputs.TaxId = mainFrame.find("input[name *= 'TaxId']")[0];
+            inputs.insuredEmailAddr = mainFrame.find("input[name = 'insuredEmailAddr']")[0];
+            inputs.ExperienceModificationCustCA = mainFrame.find("input[name *= 'ExperienceModificationCustCA']")[0];
+            inputs.ExpModPlaceholder = mainFrame.find('#ExpModPlaceholder');
+            inputs.LegalEntity = mainFrame.find('#LegalEntity');
+            inputs.table = mainFrame.find('tbody');
+            for (i = 0; i < trCount ; i++){
+                inputs.Locations.push({
+                    locNum: mainFrame.find('input[name = "locationsTable:' + i + ':locationNum"]')[0],
+                    Street: mainFrame.find('input[name = "locationsTable:' + i + ':_id76"]')[0],
+                    City: mainFrame.find('input[name = "locationsTable:' + i + ':_id78"]')[0],
+                    State: mainFrame.find('input[name = "locationsTable:' + i + ':_id80"]')[0],
+                    Zip1: mainFrame.find('input[name = "locationsTable:' + i + ':_id83"]')[0],
+                    Zip2: mainFrame.find('input[name = "locationsTable:' + i + ':_id85"]')[0]
+                })
+            }
+
+        }
+        function initEvents(){
+            jQuery.each(inputs, function(){
+                $(this).unbind('change');
+                $(this).change(dataChanged);
+            });
+            inputs.Locations.forEach(function(loc) {
+                jQuery.each(loc, function(){
+                    $(this).unbind('change');
+                    $(this).change(dataChanged);
+                });
+            });
+            inputs.ExpModPlaceholder.change(dataChanged);
+            inputs.LegalEntity.change(dataChanged);
+            inputs.table.change(dataChanged);
+        }
+        function frameInit(){
+            itemsPage = frameDataRead();
+        }
+        function findAndInitEvents(){
+            findElements();
+            initEvents();
+        }
+
+        function toggleExpModMain() {
+            if (mainFrame.find('#ExpModCustCA\\[0\\]').is(':checked')) {
+                if (mainFrame.find("#ExperienceModificationCustCABlock").is(':hidden')){
+                    mainFrame.find('#ExpModPlaceholder').
+                            append('<input id="ExperienceModificationCustCA" tabindex="10" name="ExperienceModificationCustCA" maxlength="5" value="" size="6" type="text" autocomplete="off">');
+                    mainFrame.find('#ExperienceModificationCustCABlock').show();
+                }
+                findAndInitEvents();
+                inputs.ExperienceModificationCustCA.value = items.ExpMod;
+            }
+            else {
+                mainFrame.find('#ExperienceModificationCustCABlock').hide();
+                mainFrame.find('#ExperienceModificationCustCA').remove();
+            }
+        }
+
+        function AddLocationRowMain(i) {
+            var rc = mainFrame.find('#locationsTable tbody tr').length;
+            var block = '<tr><td><input name="locationsTable:' + rc + ':locationNum" maxlength="10" size="2"></td>'
+                    + '<td><input name="locationsTable:' + rc + ':_id76" maxlength="40" size="40"></td>'
+                    + '<td><input name="locationsTable:' + rc + ':_id78" maxlength="80" size="30"></td>'
+                    + '<td><input name="locationsTable:' + rc + ':_id80" maxlength="2" size="1"></td>'
+                    + '<td><input name="locationsTable:' + rc + ':_id83" maxlength="5" size="5">-<input name="locationsTable:0:_id85" maxlength="4" size="4"></td></tr>';
+            if (i === rc - 1) $(block).appendTo(mainFrame.find('#locationsTable tbody'));
+        }
+
+        function clickFill() {
+            inputs.CommercialName.value = items.InsuredName;
+            inputs.SupplementaryName.value = items.DBA;
+            inputs.PolicyEffectiveDt.value = items.EffectiveDate;
+            inputs.YIB.value = items.YIB;
+            inputs.SelectLegal.attr("selected", "selected");
+            inputs.TaxId.value = items.FEIN;
+            inputs.insuredEmailAddr.value = items.Email;
+            if (items.ExpMod) {
+                inputs.radioTrue.prop('checked', true);
+                toggleExpModMain();
+            }
+            items.locations.forEach(function(loc, i){
+                mainFrame.find('input[name = "locationsTable:' + i + ':locationNum"]')[0].value = loc.locNum;
+                mainFrame.find('input[name = "locationsTable:' + i + ':_id76"]')[0].value = loc.Street;
+                mainFrame.find('input[name = "locationsTable:' + i + ':_id78"]')[0].value = loc.City;
+                mainFrame.find('input[name = "locationsTable:' + i + ':_id80"]')[0].value = loc.State;
+                mainFrame.find('input[name = "locationsTable:' + i + ':_id83"]')[0].value = loc.Zip.split('-')[0];
+                if (loc.Zip.split('-')[1]) mainFrame.find('input[name = "locationsTable:0:_id85"]')[i].value = loc.Zip.split('-')[1];
+                if (i !== locLength - 1) AddLocationRowMain(i);
+            });
+            findAndInitEvents();
+            frameInit();
+        }
+
+        function frameDataRead(){
+            var textSelect = mainFrame.find('#LegalEntity option:selected').text();
+            var trCount = mainFrame.find('#locationsTable tbody tr').length;
+            if (mainFrame.find('#ExperienceModificationCustCA')[0]) var expMod = mainFrame.find('#ExperienceModificationCustCA')[0].value;
+            var itemData = {
+                InsuredName: inputs.CommercialName.value,
+                DBA: inputs.SupplementaryName.value,
+                EffectiveDate: inputs.PolicyEffectiveDt.value,
+                YIB: inputs.YIB.value,
+                Entity: textSelect,
+                FEIN: inputs.TaxId.value,
+                Email: inputs.insuredEmailAddr.value,
+                ExpMod: expMod || '',
+                locations: []
+            };
+            for (var i = 0; i < trCount ; i++){
+                var zip;
+                if (mainFrame.find('input[name = "locationsTable:0:_id85"]')[i].value) {
+                    zip =  mainFrame.find('input[name = "locationsTable:' + i + ':_id83"]')[0].value +
+                            ' - ' + mainFrame.find('input[name = "locationsTable:0:_id85"]')[i].value;
+                } else {
+                    zip =  mainFrame.find('input[name = "locationsTable:' + i + ':_id83"]')[0].value;
+                }
+
+                itemData.locations.push({
+                    locNum: mainFrame.find('input[name = "locationsTable:' + i + ':locationNum"]')[0].value,
+                    Street: mainFrame.find('input[name = "locationsTable:' + i + ':_id76"]')[0].value,
+                    City: mainFrame.find('input[name = "locationsTable:' + i + ':_id78"]')[0].value,
+                    State: mainFrame.find('input[name = "locationsTable:' + i + ':_id80"]')[0].value,
+                    Zip: zip
+                })
+            }
+            return itemData;
+        }
+
+
+        function writeDif(name, oldVal, newVal) {
+            if (oldVal !== newVal) trackChanges.html(name + oldVal + ' to ' + newVal + trackChanges.html());
+        }
+        function difference(oldData, newData) {
+            var length = newData.locations.length;
+            writeDif('<br/>Insured Name ', oldData.InsuredName, newData.InsuredName);
+            writeDif('<br/>Doing Business As ', oldData.DBA, newData.DBA);
+            writeDif('<br/>Effective Date ', oldData.EffectiveDate, newData.EffectiveDate);
+            writeDif('<br/>Years in Business ', oldData.YIB, newData.YIB);
+            writeDif('<br/>Legal Entity ', oldData.Entity, newData.Entity);
+            writeDif('<br/>FEIN ', oldData.FEIN, newData.FEIN);
+            writeDif('<br/>Insured E-Mail ', oldData.Email, newData.Email);
+            writeDif('<br/>Experience Modification ', oldData.ExpMod, newData.ExpMod);
+            for (var i =0; i < length; i++) {
+                if (!oldData.locations[i]) {
+                    oldData.locations.push({
+                        locNum: '',
+                        Street: '',
+                        City: '',
+                        State: '',
+                        Zip: ''
+                    })
+                }
+                writeDif('<br/>Location City #' + [i] + ' ', oldData.locations[i].locNum, newData.locations[i].locNum);
+                writeDif('<br/>Location City #' + [i] + ' ', oldData.locations[i].Street, newData.locations[i].Street);
+                writeDif('<br/>Location City #' + [i] + ' ', oldData.locations[i].City, newData.locations[i].City);
+                writeDif('<br/>Location City #' + [i] + ' ', oldData.locations[i].State, newData.locations[i].State);
+                writeDif('<br/>Location City #' + [i] + ' ', oldData.locations[i].Zip, newData.locations[i].Zip);
+            }
+
+
+        }
+        function dataChanged(){
+            var changed = frameDataRead();
+            difference(itemsPage, changed);
+            itemsPage = changed;
+        }
+
+        $('iframe[name = "SFOMainFrame"]').load(function () {
+            findAndInitEvents();
+            frameInit();
+            $('#FillPage').on('click', clickFill);
+        });
+	</script>
+</body>
+</html>
